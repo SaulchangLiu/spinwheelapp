@@ -60,6 +60,9 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.8.1") // ✅ Core Compose UI
     implementation("androidx.compose.foundation:foundation:1.8.1") // ✅ For Canvas and drawing
 
+
+
+
     debugImplementation("androidx.compose.ui:ui-tooling:1.8.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.8.1")
 
