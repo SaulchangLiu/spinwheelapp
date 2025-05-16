@@ -1,16 +1,24 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    //id("org.jetbrains.kotlin.plugin.compose") // 🔥 This is new and required
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" // ✅ Add this line
 }
 
 android {
     namespace = "com.example.spinwheelapp"
     compileSdk = 35
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     defaultConfig {
         applicationId = "com.example.spinwheelapp"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -33,7 +41,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
+        kotlinCompilerExtensionVersion = "1.5.15"
     }
 
     kotlinOptions {
@@ -49,6 +57,8 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.compose.ui:ui:1.8.1") // ✅ Core Compose UI
+    implementation("androidx.compose.foundation:foundation:1.8.1") // ✅ For Canvas and drawing
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.8.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.8.1")
@@ -57,4 +67,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.8.1")
+
 }
