@@ -1,7 +1,5 @@
 package com.example.spinwheelapp
 
-
-
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,8 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawArc
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -38,7 +34,6 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-
 fun SpinWheelScreen() {
     val scope = rememberCoroutineScope()
     val animatedAngle = remember { Animatable(0f) }
@@ -59,7 +54,6 @@ fun SpinWheelScreen() {
         Canvas(modifier = Modifier.size(300.dp)) {
             val sweep = 360f / 10
             for (i in 0 until 10) {
-                // No need to call it as drawArc - it's directly available in the DrawScope
                 drawArc(
                     color = colors[i % colors.size],
                     startAngle = i * sweep + (animatedAngle.value % 360),
