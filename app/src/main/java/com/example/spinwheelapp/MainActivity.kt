@@ -66,17 +66,33 @@ fun SpinWheelScreen() {
     val animatedAngle = remember { Animatable(0f) }
     var isSpinning by remember { mutableStateOf(false) }
 
+    // Get current location and meal time
+    val currentCity = remember { "Hong Kong" } // You can implement location detection here
+    val currentMealTime = remember {
+        val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        when (currentHour) {
+            in 5..10 -> "Breakfast"
+            in 11..14 -> "Lunch"
+            in 17..21 -> "Dinner"
+            else -> "Late Night Snack"
+        }
+    }
+
     // Food-themed wheel segments matching the design
     val wheelSegments = remember {
         listOf(
-            WheelSegment("Cake", "🍰", Color(0xFFB8D4B8)), // Light green
+            // WheelSegment("Cake", "🍰", Color(0xFFB8D4B8)), // Light green - Original
+            WheelSegment("Hotpot", "🍲", Color(0xFFB8D4B8)), // Light green - Changed from Cake
             WheelSegment("Ramen", "🍜", Color(0xFFF4D49A)), // Light yellow
             WheelSegment("Sushi", "🍣", Color(0xFFB8D4B8)), // Light green
-            WheelSegment("Dango", "🍡", Color(0xFFE8B4B8)), // Light pink
+            // WheelSegment("Dango", "🍡", Color(0xFFE8B4B8)), // Light pink - Original
+            WheelSegment("SiChuan Style", "🌶️", Color(0xFFE8B4B8)), // Light pink - Changed from Dango
             WheelSegment("Bento", "🍱", Color(0xFFF4D49A)), // Light yellow
-            WheelSegment("Donut", "🍩", Color(0xFFD4B8D4)), // Light purple
+            // WheelSegment("Donut", "🍩", Color(0xFFD4B8D4)), // Light purple - Original
+            WheelSegment("BBQ", "🍖", Color(0xFFD4B8D4)), // Light purple - Changed from Donut
             WheelSegment("Dumplings", "🥟", Color(0xFFB8D4B8)), // Light green
-            WheelSegment("Pancakes", "🥞", Color(0xFFE8B4B8)) // Light pink
+            // WheelSegment("Pancakes", "🥞", Color(0xFFE8B4B8)) // Light pink - Original
+            WheelSegment("HK Style", "🥠", Color(0xFFE8B4B8)) // Light pink - Changed from Pancakes
         )
     }
 
@@ -99,12 +115,12 @@ fun SpinWheelScreen() {
     ) {
         // Background canvas for gradient and leaves
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Draw gradient background (warm peach to sky blue)
+            // Draw gradient background (warm peach to warm blue)
             val gradient = Brush.verticalGradient(
                 colors = listOf(
                     Color(0xFFFFB07A), // Warm peach
                     Color(0xFFFFA07A), // Light salmon
-                    Color(0xFF87CEEB)  // Sky blue
+                    Color(0xFF9BB8CD)  // Warmer, muted blue (changed from bright sky blue)
                 )
             )
             drawRect(gradient)
@@ -120,7 +136,36 @@ fun SpinWheelScreen() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Main wheel with shadow
+            // Location and meal time display
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFF5F5DC).copy(alpha = 0.9f) // Beige with transparency
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "📍 $currentCity",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF8B4513)
+                    )
+                    Text(
+                        text = "🕐 Time for $currentMealTime",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF8B4513).copy(alpha = 0.8f)
+                    )
+                }
+            }
+            // Main wheel with shadow and chopstick pointer
             Box(
                 modifier = Modifier.size(320.dp),
                 contentAlignment = Alignment.Center
@@ -130,15 +175,9 @@ fun SpinWheelScreen() {
                         segments = wheelSegments,
                         rotationAngle = animatedAngle.value
                     )
-                }
 
-                // Chopstick pointer positioned at top
-                Canvas(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .offset(y = (-140).dp)
-                ) {
-                    drawChopstickPointer()
+                    // Draw detailed chopstick pointer extending from center
+                    drawDetailedChopstickPointer()
                 }
             }
 
@@ -148,11 +187,14 @@ fun SpinWheelScreen() {
             Button(
                 onClick = {
                     if (!isSpinning) {
-                        val targetRotation = Random.nextInt(3600, 7200).toFloat()
+                        // Ensure at least 3 full rotations (1080 degrees) plus random extra spins
+                        val minRotation = 1080f // 3 full rotations minimum
+                        val extraRotation = Random.nextInt(1080, 3600).toFloat() // 3-10 additional rotations
+                        val targetRotation = minRotation + extraRotation
                         isSpinning = true
                         scope.launch {
                             animatedAngle.animateTo(
-                                targetRotation,
+                                animatedAngle.value + targetRotation,
                                 animationSpec = tween(durationMillis = 4000, easing = FastOutSlowInEasing)
                             )
                             isSpinning = false
@@ -210,27 +252,52 @@ fun DrawScope.drawFallingLeaves(leaves: List<FallingLeaf>) {
     }
 }
 
-fun DrawScope.drawChopstickPointer() {
+fun DrawScope.drawDetailedChopstickPointer() {
     val centerX = size.width / 2f
     val centerY = size.height / 2f
+    val wheelRadius = size.minDimension / 2f - 10f
 
-    // Main chopstick body
+    // Calculate chopstick length to extend from center to edge
+    val chopstickLength = wheelRadius * 0.85f
+    val chopstickWidth = 8f
+    val chopstickTipWidth = 3f
+
+    // Main chopstick body (tapered from center to tip)
     val chopstickPath = Path().apply {
-        moveTo(centerX - 3f, centerY + 30f) // Bottom left
-        lineTo(centerX + 3f, centerY + 30f) // Bottom right
-        lineTo(centerX + 1.5f, centerY - 30f) // Top right (tapered)
-        lineTo(centerX - 1.5f, centerY - 30f) // Top left (tapered)
+        // Start from center (bottom of chopstick)
+        moveTo(centerX - chopstickWidth/2, centerY)
+        lineTo(centerX + chopstickWidth/2, centerY)
+
+        // Taper to tip (pointing upward)
+        lineTo(centerX + chopstickTipWidth/2, centerY - chopstickLength)
+        lineTo(centerX - chopstickTipWidth/2, centerY - chopstickLength)
         close()
     }
 
-    // Draw chopstick with gradient
+    // Draw chopstick shadow first
+    val shadowPath = Path().apply {
+        moveTo(centerX - chopstickWidth/2 + 2f, centerY + 2f)
+        lineTo(centerX + chopstickWidth/2 + 2f, centerY + 2f)
+        lineTo(centerX + chopstickTipWidth/2 + 2f, centerY - chopstickLength + 2f)
+        lineTo(centerX - chopstickTipWidth/2 + 2f, centerY - chopstickLength + 2f)
+        close()
+    }
+
+    drawPath(
+        path = shadowPath,
+        color = Color(0x40000000) // Semi-transparent black shadow
+    )
+
+    // Draw chopstick with realistic wood gradient
     val chopstickGradient = Brush.linearGradient(
         colors = listOf(
-            Color(0xFFD2B48C), // Light wood
+            Color(0xFFE6D3A3), // Light bamboo color
+            Color(0xFFD2B48C), // Medium wood
+            Color(0xFFB8860B), // Dark gold
             Color(0xFF8B4513)  // Dark wood
         ),
-        start = Offset(centerX - 5f, centerY),
-        end = Offset(centerX + 5f, centerY)
+        start = Offset(centerX - chopstickWidth, centerY),
+        end = Offset(centerX + chopstickWidth, centerY)
     )
 
     drawPath(
@@ -242,24 +309,77 @@ fun DrawScope.drawChopstickPointer() {
     drawPath(
         path = chopstickPath,
         color = Color(0xFF654321),
-        style = Stroke(width = 1.dp.toPx())
+        style = Stroke(width = 1.5.dp.toPx())
     )
 
-    // Wood grain lines
+    // Draw detailed wood grain lines
     val grainPaint = android.graphics.Paint().apply {
-        color = Color(0xFF8B4513).toArgb()
-        strokeWidth = 0.5f
+        color = Color(0xFF8B4513).copy(alpha = 0.6f).toArgb()
+        strokeWidth = 1f
         isAntiAlias = true
     }
 
-    for (i in 0..3) {
-        val y = centerY - 20f + (i * 12f)
+    // Vertical grain lines along the chopstick
+    for (i in 0..6) {
+        val progress = i / 6f
+        val yPos = centerY - (chopstickLength * progress)
+        val width = chopstickWidth * (1f - progress * 0.6f) // Taper the grain lines too
+
         drawContext.canvas.nativeCanvas.drawLine(
-            centerX - 2f, y,
-            centerX + 2f, y,
+            centerX - width * 0.3f, yPos,
+            centerX + width * 0.3f, yPos,
             grainPaint
         )
     }
+
+    // Add horizontal wood rings (natural bamboo segments)
+    val ringPaint = android.graphics.Paint().apply {
+        color = Color(0xFF654321).copy(alpha = 0.8f).toArgb()
+        strokeWidth = 2f
+        isAntiAlias = true
+    }
+
+    for (i in 1..4) {
+        val progress = i / 5f
+        val yPos = centerY - (chopstickLength * progress)
+        val width = chopstickWidth * (1f - progress * 0.6f)
+
+        drawContext.canvas.nativeCanvas.drawLine(
+            centerX - width/2, yPos,
+            centerX + width/2, yPos,
+            ringPaint
+        )
+    }
+
+    // Add chopstick tip detail (darker tip)
+    val tipPath = Path().apply {
+        val tipHeight = 15f
+        moveTo(centerX - chopstickTipWidth/2, centerY - chopstickLength + tipHeight)
+        lineTo(centerX + chopstickTipWidth/2, centerY - chopstickLength + tipHeight)
+        lineTo(centerX + chopstickTipWidth/2, centerY - chopstickLength)
+        lineTo(centerX - chopstickTipWidth/2, centerY - chopstickLength)
+        close()
+    }
+
+    drawPath(
+        path = tipPath,
+        color = Color(0xFF654321) // Darker tip
+    )
+
+    // Add a small highlight on the chopstick for 3D effect
+    val highlightPath = Path().apply {
+        val highlightWidth = 2f
+        moveTo(centerX - highlightWidth/2, centerY)
+        lineTo(centerX - highlightWidth/4, centerY - chopstickLength * 0.8f)
+        lineTo(centerX + highlightWidth/4, centerY - chopstickLength * 0.8f)
+        lineTo(centerX + highlightWidth/2, centerY)
+        close()
+    }
+
+    drawPath(
+        path = highlightPath,
+        color = Color(0xFFF5F5DC).copy(alpha = 0.7f) // Light highlight
+    )
 }
 
 fun DrawScope.drawSpinWheel(segments: List<WheelSegment>, rotationAngle: Float) {
