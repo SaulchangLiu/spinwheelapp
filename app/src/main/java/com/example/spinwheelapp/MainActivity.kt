@@ -4,12 +4,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -39,11 +45,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 import java.net.URLEncoder
+import java.util.*
 
 // Data class to hold wheel segment information
 data class WheelSegment(
@@ -124,6 +135,56 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Location utility functions
+suspend fun getCurrentLocation(context: Context): String {
+    return withContext(Dispatchers.IO) {
+        try {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val hasLocationPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasLocationPermission) {
+                return@withContext "Unknown Location"
+            }
+
+            // Check if location services are enabled
+            val isLocationEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+            if (!isLocationEnabled) {
+                return@withContext "Location Disabled"
+            }
+
+            // Try to get last known location
+            val providers = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+
+            for (provider in providers) {
+                try {
+                    val location = locationManager.getLastKnownLocation(provider)
+                    location?.let {
+                        val geocoder = Geocoder(context, Locale.getDefault())
+                        val addresses = geocoder.getFromLocation(it.latitude, it.longitude, 1)
+
+                        if (!addresses.isNullOrEmpty()) {
+                            val address = addresses[0]
+                            return@withContext address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown City"
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Continue to next provider
+                    continue
+                }
+            }
+
+            "Location Not Available"
+        } catch (e: Exception) {
+            "Hong Kong" // Fallback to original
+        }
+    }
+}
+
 @Composable
 fun SpinWheelApp(initialSharedData: List<FoodOption>? = null) {
     var currentScreen by remember { mutableStateOf("selection") } // "selection", "wheel", or "result"
@@ -171,6 +232,37 @@ fun SpinWheelApp(initialSharedData: List<FoodOption>? = null) {
 
 @Composable
 fun FoodSelectionScreen(onConfirm: (List<FoodOption>) -> Unit) {
+    val context = LocalContext.current
+    var currentCity by remember { mutableStateOf("Detecting...") }
+    val scope = rememberCoroutineScope()
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            scope.launch {
+                currentCity = getCurrentLocation(context)
+            }
+        } else {
+            currentCity = "Permission Denied"
+        }
+    }
+
+    // Check and request location on first composition
+    LaunchedEffect(Unit) {
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasLocationPermission) {
+            currentCity = getCurrentLocation(context)
+        } else {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
     val availableFoodOptions = remember {
         listOf(
             FoodOption("Hotpot", "🍲", Color(0xFFB8D4B8)),
@@ -184,18 +276,35 @@ fun FoodSelectionScreen(onConfirm: (List<FoodOption>) -> Unit) {
             FoodOption("Pizza", "🍕", Color(0xFFFFB6C1)),
             FoodOption("Burger", "🍔", Color(0xFFDDA0DD)),
             FoodOption("Tacos", "🌮", Color(0xFFFFE4B5)),
-            FoodOption("Pasta", "🍝", Color(0xFFB0E0E6)),
+            //FoodOption("Pasta", "🍝", Color(0xFFB0E0E6)),
             FoodOption("Korean BBQ", "🥩", Color(0xFFFFA07A)),
             FoodOption("Thai Food", "🍛", Color(0xFF98FB98)),
             FoodOption("Indian Curry", "🍛", Color(0xFFFFDEAD)),
-            FoodOption("Mediterranean", "🥙", Color(0xFFE6E6FA))
+            FoodOption("Mediterranean", "🥙", Color(0xFFE6E6FA)),
+            FoodOption("Fried Chicken", "🍗", Color(0xFFFFD700)),
+            FoodOption("Halal Food", "🍽️", Color(0xFF90EE90)),
+            FoodOption("Pho", "🍜", Color(0xFFFFB6C1)),
+            //FoodOption("Sandwiches", "🥪", Color(0xFFFAD5A5)),
+            FoodOption("Steak", "🥩", Color(0xFFCD853F)),
+            FoodOption("Seafood", "🦐", Color(0xFF87CEEB)),
+            FoodOption("Vietnamese", "🇻🇳", Color(0xFFDDA0DD)),
+            FoodOption("Chinese", "🥢", Color(0xFFFF6347)),
+            FoodOption("Mexican", "🌶️", Color(0xFFFFE4E1)),
+            FoodOption("Greek", "🫒", Color(0xFFF0E68C)),
+            FoodOption("Turkish", "🥙", Color(0xFFDEB887)),
+            FoodOption("Lebanese", "🧆", Color(0xFFE6E6FA)),
+            FoodOption("Fish", "🐟", Color(0xFFB0C4DE)),
+            //FoodOption("Salad", "🥗", Color(0xFF98FB98)),
+            //FoodOption("Wraps", "🌯", Color(0xFFFFDEAD)),
+            //FoodOption("Wings", "🍗", Color(0xFFFF8C00)),
+            FoodOption("Noodles", "🍝", Color(0xFFFFE4B5)),
+            //FoodOption("Rice Bowls", "🍚", Color(0xFFDDA0DD)),
+            //FoodOption("Desserts", "🍰", Color(0xFFFFB6C1)),
+            FoodOption("Breakfast", "🥞", Color(0xFFFFE4E1))
         )
     }
 
     var selectedOptions by remember { mutableStateOf<Set<FoodOption>>(emptySet()) }
-
-    // Get current location
-    val currentCity = remember { "Hong Kong" }
 
     // Generate random falling leaves
     val fallingLeaves = remember {
@@ -232,7 +341,7 @@ fun FoodSelectionScreen(onConfirm: (List<FoodOption>) -> Unit) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Location display only
+            // Location display with dynamic city
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -389,14 +498,14 @@ fun FoodOptionCard(
                 .padding(horizontal = 12.dp, vertical = 8.dp), // Increased padding
             contentAlignment = Alignment.Center
         ) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = option.emoji,
                     fontSize = 28.sp, // Increased emoji size
-                    modifier = Modifier.padding(end = 8.dp)
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
                 Text(
                     text = option.text,
@@ -421,9 +530,21 @@ fun SpinWheelScreen(
     val scope = rememberCoroutineScope()
     val animatedAngle = remember { Animatable(0f) }
     var isSpinning by remember { mutableStateOf(false) }
+    var currentCity by remember { mutableStateOf("Detecting...") }
 
-    // Get current location
-    val currentCity = remember { "Hong Kong" }
+    // Get current location for wheel screen too
+    LaunchedEffect(Unit) {
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasLocationPermission) {
+            currentCity = getCurrentLocation(context)
+        } else {
+            currentCity = "Location Permission Required"
+        }
+    }
 
     // Convert selected options to wheel segments
     val wheelSegments = remember(selectedFoodOptions) {
@@ -493,7 +614,7 @@ fun SpinWheelScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Location display only
+            // Location display with dynamic city
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -966,6 +1087,7 @@ fun DrawScope.drawSpinWheel(segments: List<WheelSegment>, rotationAngle: Float) 
             (index * sweepAngle + sweepAngle / 2 + (rotationAngle % 360)).toDouble()
         )
 
+        // Doubled the emoji size from 80f to 160f
         val emojiRadius = radius * 0.45f
         val emojiX = centerX + (emojiRadius * cos(angleInRadians)).toFloat()
         val emojiY = centerY + (emojiRadius * sin(angleInRadians)).toFloat()
@@ -975,7 +1097,7 @@ fun DrawScope.drawSpinWheel(segments: List<WheelSegment>, rotationAngle: Float) 
         val textY = centerY + (textRadius * sin(angleInRadians)).toFloat()
 
         val emojiPaint = android.graphics.Paint().apply {
-            textSize = 80f
+            textSize = 160f  // Doubled from 80f
             textAlign = android.graphics.Paint.Align.CENTER
             isAntiAlias = true
         }
@@ -989,7 +1111,7 @@ fun DrawScope.drawSpinWheel(segments: List<WheelSegment>, rotationAngle: Float) 
 
         val textPaint = android.graphics.Paint().apply {
             color = Color(0xFF8B4513).toArgb()
-            textSize = 32f
+            textSize = 64f  // Doubled from 32f
             textAlign = android.graphics.Paint.Align.CENTER
             isAntiAlias = true
             isFakeBoldText = true
